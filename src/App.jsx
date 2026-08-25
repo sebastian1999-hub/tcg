@@ -672,7 +672,7 @@ function App() {
               <p>Ofertas activas para intercambio</p>
             </div>
             <div className="section-actions">
-              <span className="orbit-hint">La rotacion se pausa al interactuar</span>
+              
               <button
                 type="button"
                 className="text-button"
