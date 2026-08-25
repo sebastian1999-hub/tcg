@@ -9,6 +9,7 @@ import {
   LayoutList,
   MapPin,
   Menu,
+  MessageCircle,
   Plus,
   Repeat2,
   Search,
@@ -87,6 +88,9 @@ function App() {
   const [tradeDraft, setTradeDraft] = useState(null);
   const [tradeDetail, setTradeDetail] = useState(null);
   const [isTradeSaving, setIsTradeSaving] = useState(false);
+  const [tradeMessages, setTradeMessages] = useState([]);
+  const [chatMessage, setChatMessage] = useState("");
+  const [isChatSaving, setIsChatSaving] = useState(false);
   const [page, setPage] = useState("home");
   const [view, setView] = useState("grid");
   const [query, setQuery] = useState("");
@@ -361,8 +365,48 @@ function App() {
       return;
     }
     setTradeDetail({ ...trade, status });
+    if (status === "accepted") await loadTradeMessages(trade.id);
     setNotice(status === "accepted" ? "Oferta aceptada." : "Oferta rechazada.");
     await refreshData(session);
+  }
+
+  async function loadTradeMessages(tradeId) {
+    const { data, error } = await supabase
+      .from("trade_messages")
+      .select("id, sender_id, body, created_at")
+      .eq("trade_offer_id", tradeId)
+      .order("created_at", { ascending: true });
+    if (error) {
+      setNotice(`No se pudo cargar el chat: ${error.message}`);
+      return;
+    }
+    setTradeMessages(data || []);
+  }
+
+  async function openTradeDetail(trade) {
+    setTradeDetail(trade);
+    setChatMessage("");
+    setTradeMessages([]);
+    if (trade.status === "accepted") await loadTradeMessages(trade.id);
+  }
+
+  async function sendTradeMessage(event) {
+    event.preventDefault();
+    const body = chatMessage.trim();
+    if (!body || !tradeDetail) return;
+    setIsChatSaving(true);
+    const { error } = await supabase.from("trade_messages").insert({
+      trade_offer_id: tradeDetail.id,
+      sender_id: session.user.id,
+      body,
+    });
+    setIsChatSaving(false);
+    if (error) {
+      setNotice(`No se pudo enviar el mensaje: ${error.message}`);
+      return;
+    }
+    setChatMessage("");
+    await loadTradeMessages(tradeDetail.id);
   }
 
   function openCounterOffer(trade) {
@@ -590,6 +634,17 @@ function App() {
             {isIncoming && <><button type="button" className="add-button" onClick={() => updateTradeStatus(tradeDetail, "accepted")} disabled={isTradeSaving}><Check size={16} /> Aceptar</button><button type="button" className="trade-reject-button" onClick={() => updateTradeStatus(tradeDetail, "rejected")} disabled={isTradeSaving}><XCircle size={16} /> Rechazar</button></>}
             <button type="button" className="text-button" onClick={() => openCounterOffer(tradeDetail)}><Repeat2 size={16} /> Hacer contraoferta</button>
           </div>}
+          {tradeDetail.status === "accepted" && <section className="trade-chat">
+            <div className="trade-chat-heading"><MessageCircle size={17} /><div><h3>Chat del intercambio</h3><span>Coordina la entrega con {counterparty.name}.</span></div></div>
+            <div className="trade-message-list">
+              {tradeMessages.map((message) => <p key={message.id} className={message.sender_id === session.user.id ? "own" : ""}>{message.body}</p>)}
+              {!tradeMessages.length && <span className="trade-empty">Aun no hay mensajes. Escribe para coordinar el intercambio.</span>}
+            </div>
+            <form className="trade-chat-form" onSubmit={sendTradeMessage}>
+              <input value={chatMessage} onChange={(event) => setChatMessage(event.target.value)} placeholder="Escribe un mensaje" maxLength="1000" />
+              <button type="submit" disabled={!chatMessage.trim() || isChatSaving} aria-label="Enviar mensaje"><Send size={17} /></button>
+            </form>
+          </section>}
         </section>
       </div>
     );
@@ -658,17 +713,6 @@ function App() {
               que aparezca aqui.
             </div>
           )}
-        </section>
-        <section className="trade-inbox">
-          <div className="section-title"><div><h2>Ofertas de intercambio</h2><p>Solicitudes recibidas y enviadas desde tu biblioteca.</p></div><span className="offer-total">{tradeRequests.length} ofertas</span></div>
-          <div className="trade-request-list">
-            {tradeRequests.map((trade) => {
-              const incoming = trade.recipientId === session.user.id;
-              const counterparty = incoming ? trade.sender : trade.recipient;
-              return <article key={trade.id}><ProfileAvatar profile={counterparty} /><div><strong>{incoming ? `${counterparty.name} te ha enviado una oferta` : `Oferta enviada a ${counterparty.name}`}</strong><span>{trade.senderCards.length} por {trade.recipientCards.length} cartas · {trade.status}</span></div><button type="button" className="text-button" onClick={() => setTradeDetail(trade)}>Ver oferta <ArrowUpRight size={15} /></button></article>;
-            })}
-          </div>
-          {!tradeRequests.length && <div className="empty-state">Aun no tienes ofertas de intercambio.</div>}
         </section>
       </main>
     );
@@ -1057,6 +1101,8 @@ function App() {
           session={session}
           onSessionChange={setSession}
           onNotice={setNotice}
+          tradeRequests={tradeRequests}
+          onViewTrade={openTradeDetail}
         />
         {notice && (
           <div className="toast" role="status">
@@ -1089,6 +1135,8 @@ function App() {
         session={session}
         onSessionChange={setSession}
         onNotice={setNotice}
+        tradeRequests={tradeRequests}
+        onViewTrade={openTradeDetail}
       />
     );
   return (

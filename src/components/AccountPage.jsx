@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Camera, LogIn, LogOut, Save, UserRound } from "lucide-react";
+import { ArrowUpRight, Camera, LogIn, LogOut, Save, Send, UserRound } from "lucide-react";
 import {
   autonomousCommunities,
   provincesForCommunity,
@@ -7,7 +7,7 @@ import {
 } from "../lib/spanishLocations";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 
-function AccountPage({ session, onSessionChange, onNotice }) {
+function AccountPage({ session, onSessionChange, onNotice, tradeRequests = [], onViewTrade }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,6 +18,7 @@ function AccountPage({ session, onSessionChange, onNotice }) {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [tradeFilter, setTradeFilter] = useState("pending");
   const provinces = useMemo(
     () => provincesForCommunity(community),
     [community],
@@ -206,6 +207,9 @@ function AccountPage({ session, onSessionChange, onNotice }) {
       </main>
     );
   if (session)
+    {
+      const visibleTrades = tradeRequests.filter((trade) => trade.status === tradeFilter);
+      const tradeLabels = { pending: "Pendientes", rejected: "Rechazadas", accepted: "Aceptadas" };
     return (
       <main className="account-page">
         <p className="eyebrow">
@@ -247,11 +251,38 @@ function AccountPage({ session, onSessionChange, onNotice }) {
             <Save size={16} /> Guardar perfil
           </button>
         </form>
+        <section className="account-trades">
+          <div className="section-title">
+            <div>
+              <h2>Ofertas de intercambio</h2>
+              <p>Gestiona tus propuestas y conversa al aceptar un intercambio.</p>
+            </div>
+            <span className="offer-total">{visibleTrades.length}</span>
+          </div>
+          <div className="trade-status-toggles" role="tablist" aria-label="Filtrar ofertas">
+            {Object.entries(tradeLabels).map(([status, label]) => (
+              <button key={status} type="button" role="tab" aria-selected={tradeFilter === status} className={tradeFilter === status ? "active" : ""} onClick={() => setTradeFilter(status)}>{label}</button>
+            ))}
+          </div>
+          <div className="account-trade-list">
+            {visibleTrades.map((trade) => {
+              const incoming = trade.recipientId === session.user.id;
+              const counterparty = incoming ? trade.sender : trade.recipient;
+              return <article key={trade.id}>
+                <span className="account-trade-avatar">{counterparty.avatarUrl ? <img src={counterparty.avatarUrl} alt="" /> : counterparty.name.slice(0, 2).toUpperCase()}</span>
+                <div><strong>{incoming ? `${counterparty.name} te ha enviado una oferta` : `Oferta enviada a ${counterparty.name}`}</strong><span>{trade.senderCards.length} por {trade.recipientCards.length} cartas</span></div>
+                <button type="button" className="text-button" onClick={() => onViewTrade(trade)}>Ver oferta <ArrowUpRight size={15} /></button>
+              </article>;
+            })}
+          </div>
+          {!visibleTrades.length && <div className="empty-state">No tienes ofertas {tradeLabels[tradeFilter].toLowerCase()}.</div>}
+        </section>
         <button type="button" className="account-signout" onClick={signOut}>
           <LogOut size={16} /> Cerrar sesion
         </button>
       </main>
     );
+    }
   return (
     <main className="account-page">
       <p className="eyebrow">

@@ -51,10 +51,19 @@ create table if not exists public.trade_offers (
   check (sender_id <> recipient_id)
 );
 
+create table if not exists public.trade_messages (
+  id uuid primary key default gen_random_uuid(),
+  trade_offer_id uuid not null references public.trade_offers(id) on delete cascade,
+  sender_id uuid not null references public.profiles(id) on delete cascade,
+  body text not null check (char_length(trim(body)) between 1 and 1000),
+  created_at timestamptz not null default now()
+);
+
 alter table public.profiles enable row level security;
 alter table public.collection_cards enable row level security;
 alter table public.wanted_cards enable row level security;
 alter table public.trade_offers enable row level security;
+alter table public.trade_messages enable row level security;
 
 alter table public.collection_cards
   add column if not exists card_status text not null default 'coleccion'
@@ -68,6 +77,25 @@ create policy "Owners manage their wanted cards" on public.wanted_cards for all 
 create policy "Participants can read trade offers" on public.trade_offers for select to authenticated using (auth.uid() = sender_id or auth.uid() = recipient_id);
 create policy "Users send trade offers" on public.trade_offers for insert to authenticated with check (auth.uid() = sender_id);
 create policy "Participants update trade offers" on public.trade_offers for update to authenticated using (auth.uid() = sender_id or auth.uid() = recipient_id) with check (auth.uid() = sender_id or auth.uid() = recipient_id);
+
+create policy "Trade participants read messages" on public.trade_messages for select to authenticated using (
+  exists (
+    select 1 from public.trade_offers
+    where trade_offers.id = trade_messages.trade_offer_id
+      and trade_offers.status = 'accepted'
+      and (trade_offers.sender_id = auth.uid() or trade_offers.recipient_id = auth.uid())
+  )
+);
+
+create policy "Trade participants send messages" on public.trade_messages for insert to authenticated with check (
+  sender_id = auth.uid()
+  and exists (
+    select 1 from public.trade_offers
+    where trade_offers.id = trade_messages.trade_offer_id
+      and trade_offers.status = 'accepted'
+      and (trade_offers.sender_id = auth.uid() or trade_offers.recipient_id = auth.uid())
+  )
+);
 
 create or replace function public.handle_new_user()
 returns trigger
