@@ -31,7 +31,7 @@ const cardImage = (name) =>
 const cardGames = {
   magic: { label: "Magic: The Gathering", importLabel: "Buscar en Scryfall" },
   pokemon: { label: "Pokemon", importLabel: "Buscar en TCGdex" },
-  star_wars_unlimited: { label: "Star Wars Unlimited", importLabel: "Anadir carta" },
+  star_wars_unlimited: { label: "Star Wars Unlimited", importLabel: "Buscar en SWUAPI" },
   riftbound: { label: "Riftbound", importLabel: "Anadir carta" },
 };
 
@@ -620,6 +620,27 @@ function App() {
             rarity: card.rarity || "Sin especificar",
             value: "0.00",
             image: card.image ? `${card.image}/high.webp` : "",
+            available: true,
+            quantity: 1,
+          })),
+        );
+        return;
+      }
+      if (selectedGame === "star_wars_unlimited") {
+        const response = await fetch(
+          `https://api.swuapi.com/cards?name=${encodeURIComponent(importQuery.trim())}&limit=8`,
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error("No se pudieron buscar las cartas de Star Wars Unlimited");
+        setSearchResults(
+          (data.cards || []).slice(0, 8).map((card) => ({
+            id: card.uuid,
+            game: "star_wars_unlimited",
+            name: [card.name, card.subtitle].filter(Boolean).join(", "),
+            set: card.set_code || "Edicion sin especificar",
+            rarity: card.rarity || "Sin especificar",
+            value: "0.00",
+            image: card.front_image_url || card.thumbnail_url || "",
             available: true,
             quantity: 1,
           })),
@@ -1355,16 +1376,16 @@ function App() {
             >
               <X size={20} />
             </button>
-            <p className="eyebrow">{selectedGame === "magic" ? "IMPORTAR DESDE MAGIC" : selectedGame === "pokemon" ? "IMPORTAR DESDE POKEMON" : `ANADIR ${cardGames[selectedGame].label.toUpperCase()}`}</p>
-            <h2 id="import-title">{selectedGame === "magic" || selectedGame === "pokemon" ? "Busca una carta" : "Registra una carta"}</h2>
+            <p className="eyebrow">{selectedGame === "magic" ? "IMPORTAR DESDE MAGIC" : selectedGame === "pokemon" ? "IMPORTAR DESDE POKEMON" : selectedGame === "star_wars_unlimited" ? "IMPORTAR DESDE STAR WARS UNLIMITED" : `ANADIR ${cardGames[selectedGame].label.toUpperCase()}`}</p>
+            <h2 id="import-title">{selectedGame === "riftbound" ? "Registra una carta" : "Busca una carta"}</h2>
             <p className="modal-copy">
-              {selectedGame === "magic" ? "Elige una impresion de la base de datos de Scryfall para anadirla a tu biblioteca." : selectedGame === "pokemon" ? "Busca una carta en TCGdex para guardar su nombre, edicion, rareza e imagen." : "Introduce el nombre de la carta para guardarla en tu biblioteca y poder publicarla para trade."}
+              {selectedGame === "magic" ? "Elige una impresion de la base de datos de Scryfall para anadirla a tu biblioteca." : selectedGame === "pokemon" ? "Busca una carta en TCGdex para guardar su nombre, edicion, rareza e imagen." : selectedGame === "star_wars_unlimited" ? "Busca una carta en SWUAPI para guardar su nombre, edicion, rareza e imagen." : "Introduce el nombre de la carta para guardarla en tu biblioteca y poder publicarla para trade."}
             </p>
             <form className="import-search" onSubmit={searchScryfall}>
               <input
                 value={importQuery}
                 onChange={(event) => setImportQuery(event.target.value)}
-                placeholder={selectedGame === "magic" ? "Ej. Sol Ring, set:woe" : selectedGame === "pokemon" ? "Ej. Pikachu, Charizard ex" : "Nombre de la carta"}
+                placeholder={selectedGame === "magic" ? "Ej. Sol Ring, set:woe" : selectedGame === "pokemon" ? "Ej. Pikachu, Charizard ex" : selectedGame === "star_wars_unlimited" ? "Ej. Luke Skywalker, Darth Vader" : "Nombre de la carta"}
                 autoFocus
               />
               <button type="submit" disabled={isSearching}>
@@ -1399,6 +1420,9 @@ function App() {
             </p>}
             {selectedGame === "pokemon" && <p className="api-credit">
               Datos e imagenes de TCGdex. Pokemon es propiedad de The Pokemon Company.
+            </p>}
+            {selectedGame === "star_wars_unlimited" && <p className="api-credit">
+              Datos e imagenes de SWUAPI. Star Wars Unlimited es propiedad de Fantasy Flight Games y Lucasfilm.
             </p>}
           </section>
         </div>
