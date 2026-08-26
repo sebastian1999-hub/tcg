@@ -92,6 +92,7 @@ function App() {
   const [chatMessage, setChatMessage] = useState("");
   const [isChatSaving, setIsChatSaving] = useState(false);
   const [page, setPage] = useState("home");
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [view, setView] = useState("grid");
   const [query, setQuery] = useState("");
   const [availability, setAvailability] = useState("Todas");
@@ -282,6 +283,11 @@ function App() {
   function openProfile(profile) {
     setSelectedProfile(profile);
     setPage("profile");
+  }
+
+  function navigateTo(nextPage) {
+    setPage(nextPage);
+    setIsMobileNavOpen(false);
   }
 
   function openTradeComposer(targetOffer, parentOfferId = null) {
@@ -1142,7 +1148,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button className="brand" type="button" onClick={() => setPage("home")}>
+        <button className="brand" type="button" onClick={() => navigateTo("home")}>
           <span className="brand-mark">C</span>
           <span>TradingCardGueb</span>
         </button>
@@ -1150,21 +1156,21 @@ function App() {
           <button
             className={page === "home" ? "active" : ""}
             type="button"
-            onClick={() => setPage("home")}
+            onClick={() => navigateTo("home")}
           >
             Inicio
           </button>
           <button
             className={page === "library" ? "active" : ""}
             type="button"
-            onClick={() => setPage("library")}
+            onClick={() => navigateTo("library")}
           >
             Mi biblioteca
           </button>
           <button
             className={page === "trades" ? "active" : ""}
             type="button"
-            onClick={() => setPage("trades")}
+            onClick={() => navigateTo("trades")}
           >
             Intercambios <span className="nav-count">{allOffers.length}</span>
           </button>
@@ -1180,7 +1186,7 @@ function App() {
           <button
             className="profile-trigger"
             type="button"
-            onClick={() => setPage("account")}
+            onClick={() => navigateTo("account")}
           >
             <span className="profile-dot">
               {session.user.email.slice(0, 2).toUpperCase()}
@@ -1191,12 +1197,23 @@ function App() {
           <button
             className="icon-button mobile-menu"
             type="button"
-            aria-label="Abrir menu"
+            onClick={() => setIsMobileNavOpen((isOpen) => !isOpen)}
+            aria-expanded={isMobileNavOpen}
+            aria-controls="mobile-navigation"
+            aria-label={isMobileNavOpen ? "Cerrar menu" : "Abrir menu"}
           >
-            <Menu size={21} />
+            {isMobileNavOpen ? <X size={21} /> : <Menu size={21} />}
           </button>
         </div>
       </header>
+      {isMobileNavOpen && (
+        <nav id="mobile-navigation" className="mobile-navigation" aria-label="Navegacion principal">
+          <button className={page === "home" ? "active" : ""} type="button" onClick={() => navigateTo("home")}>Inicio</button>
+          <button className={page === "library" ? "active" : ""} type="button" onClick={() => navigateTo("library")}>Mi biblioteca</button>
+          <button className={page === "trades" ? "active" : ""} type="button" onClick={() => navigateTo("trades")}>Intercambios <span className="nav-count">{allOffers.length}</span></button>
+          <button className={page === "account" ? "active" : ""} type="button" onClick={() => navigateTo("account")}>Mi perfil</button>
+        </nav>
+      )}
       {currentPage}
       {notice && (
         <div className="toast" role="status">

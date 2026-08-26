@@ -1040,6 +1040,9 @@
 .mobile-menu {
   display: none;
 }
+.mobile-navigation {
+  display: none;
+}
 main,
 .profile-page {
   max-width: 1390px;
@@ -2051,6 +2054,37 @@ main,
   }
   .mobile-menu {
     display: grid !important;
+  }
+  .mobile-navigation {
+    display: grid;
+    position: fixed;
+    top: 60px;
+    right: 0;
+    left: 0;
+    z-index: 9;
+    padding: 9px 18px 14px;
+    border-bottom: 1px solid #d7ddd3;
+    background: rgba(247, 246, 240, 0.98);
+    box-shadow: 0 12px 22px rgba(38, 48, 37, 0.1);
+  }
+  .mobile-navigation button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 43px;
+    border: 0;
+    border-bottom: 1px solid #e1e5dc;
+    color: #4b5549;
+    background: transparent;
+    font-size: 14px;
+    text-align: left;
+  }
+  .mobile-navigation button:last-child {
+    border-bottom: 0;
+  }
+  .mobile-navigation button.active {
+    color: #294b32;
+    font-weight: 700;
   }
   .collection-head {
     align-items: start;
