@@ -819,7 +819,7 @@ function App() {
 
   function HomePage() {
     const cardsPerPage = 8;
-    const latestCards = allOffers.slice(0, cardsPerPage);
+    const latestCards = offers.slice(0, cardsPerPage);
     return (
       <main className="home-page">
         <section className="home-intro">
@@ -849,14 +849,13 @@ function App() {
               </button>
             </div>
           </div>
-          {latestCards.length ? (
-            <div className="orbit-wrapper">
-              <div
-                className="orbit-inner"
-                style={{ "--quantity": latestCards.length }}
-              >
-                {latestCards.map((card, index) => (
-                  <button
+          <div className="orbit-wrapper">
+            <div
+              className="orbit-inner"
+              style={{ "--quantity": cardsPerPage }}
+            >
+              {latestCards.map((card, index) => (
+                <button
                     type="button"
                     className="orbit-card"
                     key={card.id}
@@ -870,16 +869,10 @@ function App() {
                     />
                     <span>{card.name}</span>
                     <small>{card.owner.name} · {card.quantity} {card.quantity === 1 ? "copia" : "copias"}</small>
-                  </button>
-                ))}
-              </div>
+                </button>
+              ))}
             </div>
-          ) : (
-            <div className="empty-state">
-              Aun no hay cartas publicadas. Importa una carta y publicala para
-              que aparezca aqui.
-            </div>
-          )}
+          </div>
         </section>
       </main>
     );
