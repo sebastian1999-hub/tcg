@@ -14,6 +14,7 @@ create table if not exists public.collection_cards (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   card_id text not null,
+  game text not null default 'magic' check (game in ('magic', 'pokemon', 'star_wars_unlimited', 'riftbound')),
   name text not null,
   set_name text,
   rarity text,
@@ -25,7 +26,7 @@ create table if not exists public.collection_cards (
   quantity integer not null default 1 check (quantity > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (user_id, card_id)
+  unique (user_id, game, card_id)
 );
 
 create table if not exists public.wanted_cards (
@@ -68,6 +69,16 @@ alter table public.trade_messages enable row level security;
 alter table public.collection_cards
   add column if not exists card_status text not null default 'coleccion'
   check (card_status in ('en_mazo', 'trade', 'coleccion'));
+
+alter table public.collection_cards
+  add column if not exists game text not null default 'magic'
+  check (game in ('magic', 'pokemon', 'star_wars_unlimited', 'riftbound'));
+
+alter table public.collection_cards
+  drop constraint if exists collection_cards_user_id_card_id_key;
+
+alter table public.collection_cards
+  add constraint collection_cards_user_id_game_card_id_key unique (user_id, game, card_id);
 
 create policy "Profiles are visible to signed-in users" on public.profiles for select to authenticated using (true);
 create policy "Users manage their profile" on public.profiles for all to authenticated using (auth.uid() = id) with check (auth.uid() = id);

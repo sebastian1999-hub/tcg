@@ -27,6 +27,13 @@ import "./App.css";
 const cardImage = (name) =>
   `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image&version=normal`;
 
+const cardGames = {
+  magic: { label: "Magic: The Gathering", importLabel: "Buscar en Scryfall" },
+  pokemon: { label: "Pokemon", importLabel: "Anadir carta" },
+  star_wars_unlimited: { label: "Star Wars Unlimited", importLabel: "Anadir carta" },
+  riftbound: { label: "Riftbound", importLabel: "Anadir carta" },
+};
+
 const locationLabel = (profile) =>
   [profile?.locality, profile?.province, profile?.community]
     .filter(Boolean)
@@ -93,6 +100,7 @@ function App() {
   const [isChatSaving, setIsChatSaving] = useState(false);
   const [page, setPage] = useState("home");
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [selectedGame, setSelectedGame] = useState("magic");
   const [view, setView] = useState("grid");
   const [query, setQuery] = useState("");
   const [availability, setAvailability] = useState("Todas");
@@ -116,14 +124,14 @@ function App() {
       supabase
         .from("collection_cards")
         .select(
-          "card_id, name, set_name, rarity, image_url, estimated_value, available, listed_for_trade, card_status, quantity",
+          "card_id, game, name, set_name, rarity, image_url, estimated_value, available, listed_for_trade, card_status, quantity",
         )
         .eq("user_id", activeSession.user.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("collection_cards")
         .select(
-          "user_id, card_id, name, set_name, rarity, image_url, estimated_value, available, quantity, profiles(display_name, community, province, locality, avatar_url, completed_trades)",
+          "user_id, card_id, game, name, set_name, rarity, image_url, estimated_value, available, quantity, profiles(display_name, community, province, locality, avatar_url, completed_trades)",
         )
         .eq("listed_for_trade", true)
         .order("created_at", { ascending: false }),
@@ -141,6 +149,7 @@ function App() {
       setCollection(
         (cardsResult.data || []).map((card) => ({
           id: card.card_id,
+          game: card.game || "magic",
           name: card.name,
           set: card.set_name,
           rarity: card.rarity,
@@ -162,6 +171,7 @@ function App() {
       setOffers(
         (offersResult.data || []).map((card) => ({
           id: `${card.user_id}-${card.card_id}`,
+          game: card.game || "magic",
           name: card.name,
           set: card.set_name,
           rarity: card.rarity,
@@ -237,13 +247,17 @@ function App() {
   const allOffers = useMemo(() => {
     const existingOwnOffers = new Set(
       offers
-        .filter((offer) => offer.owner.id === session?.user.id)
+        .filter(
+          (offer) =>
+            offer.owner.id === session?.user.id && offer.game === selectedGame,
+        )
         .map((offer) => offer.id),
     );
     const unpublishedOwnOffers = collection
       .filter(
         (card) =>
           card.listedForTrade &&
+          card.game === selectedGame &&
           !existingOwnOffers.has(`${session?.user.id}-${card.id}`),
       )
       .map((card) => ({
@@ -256,20 +270,24 @@ function App() {
           trades: 0,
         },
       }));
-    return [...offers, ...unpublishedOwnOffers];
-  }, [collection, offers, session]);
+    return [
+      ...offers.filter((offer) => offer.game === selectedGame),
+      ...unpublishedOwnOffers,
+    ];
+  }, [collection, offers, selectedGame, session]);
 
   const visibleCards = useMemo(() => {
     const term = query.toLowerCase();
     return collection.filter(
       (card) =>
+        card.game === selectedGame &&
         (card.name.toLowerCase().includes(term) ||
           card.set?.toLowerCase().includes(term)) &&
         (availability === "Todas" ||
           (availability === "Disponibles" && card.available) ||
           (availability === "No disponibles" && !card.available)),
     );
-  }, [availability, collection, query]);
+  }, [availability, collection, query, selectedGame]);
 
   const collectors = useMemo(() => {
     const uniqueCollectors = new Map();
@@ -316,6 +334,7 @@ function App() {
   function snapshotCard(card) {
     return {
       id: card.id,
+      game: card.game || selectedGame,
       name: card.name,
       set: card.set,
       image: card.image,
@@ -435,6 +454,7 @@ function App() {
       {
         user_id: session.user.id,
         card_id: String(card.id),
+        game: card.game || selectedGame,
         name: card.name,
         set_name: card.set,
         rarity: card.rarity,
@@ -445,7 +465,7 @@ function App() {
         card_status: cardStatusFor(card),
         quantity: card.quantity || 1,
       },
-      { onConflict: "user_id,card_id" },
+      { onConflict: "user_id,game,card_id" },
     );
     if (error) {
       setNotice(`No se pudo guardar la carta: ${error.message}`);
@@ -457,6 +477,15 @@ function App() {
   async function openCardDetail(card) {
     setDetailCard({ ...card, oracleText: "", typeLine: "" });
     setPage("card-detail");
+    if (card.game && card.game !== "magic") {
+      setIsDetailLoading(false);
+      setDetailCard((currentCard) => ({
+        ...currentCard,
+        oracleText: "Detalle de carta registrado por el coleccionista.",
+        typeLine: cardGames[card.game]?.label || "Juego de cartas coleccionables",
+      }));
+      return;
+    }
     setIsDetailLoading(true);
     try {
       const response = await fetch(
@@ -524,6 +553,7 @@ function App() {
         listed_for_trade: statusDetails.listedForTrade,
       })
       .eq("user_id", session.user.id)
+      .eq("game", selectedGame)
       .in("card_id", cardIds);
     if (error) {
       setCollection(collection);
@@ -543,6 +573,20 @@ function App() {
     setIsSearching(true);
     setSearchError("");
     try {
+      if (selectedGame !== "magic") {
+        setSearchResults([{
+          id: `${selectedGame}-${importQuery.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+          game: selectedGame,
+          name: importQuery.trim(),
+          set: "Edicion sin especificar",
+          rarity: "Sin especificar",
+          value: "0.00",
+          image: "",
+          available: true,
+          quantity: 1,
+        }]);
+        return;
+      }
       const response = await fetch(
         `https://api.scryfall.com/cards/search?q=${encodeURIComponent(importQuery.trim())}&unique=cards`,
       );
@@ -552,6 +596,7 @@ function App() {
       setSearchResults(
         data.data.slice(0, 8).map((card) => ({
           id: card.id,
+          game: "magic",
           name: card.name,
           set: card.set_name,
           rarity: card.rarity,
@@ -570,12 +615,13 @@ function App() {
   }
 
   async function addCard(card) {
-    if (collection.some((item) => item.id === card.id)) {
+    if (collection.some((item) => item.id === card.id && item.game === (card.game || selectedGame))) {
       setNotice(`${card.name} ya esta en tu biblioteca.`);
       return;
     }
     const newCard = {
       ...card,
+      game: card.game || selectedGame,
       value: Number(card.value || 0).toFixed(2),
       listedForTrade: false,
       status: "coleccion",
@@ -591,7 +637,9 @@ function App() {
     const recipientCards = allOffers.filter(
       (card) => card.owner.id === tradeDraft.recipient.id,
     );
-    const ownTradeCards = collection.filter((card) => card.available);
+    const ownTradeCards = collection.filter(
+      (card) => card.available && card.game === selectedGame,
+    );
     return (
       <div className="modal-backdrop" onMouseDown={() => setTradeDraft(null)}>
         <section className="trade-builder-modal" role="dialog" aria-modal="true" aria-labelledby="trade-builder-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -730,13 +778,19 @@ function App() {
         <section className="collection-head">
           <div>
             <p className="eyebrow">
-              <Sparkles size={14} /> COLECCION DE MAGIC: THE GATHERING
+              <Sparkles size={14} /> COLECCION DE {cardGames[selectedGame].label.toUpperCase()}
             </p>
             <h1>Tu biblioteca</h1>
             <p className="collection-subtitle">
               Cartas guardadas en tu cuenta de Supabase.
             </p>
           </div>
+          <label className="select-box game-selector">
+            <select value={selectedGame} onChange={(event) => { setSelectedGame(event.target.value); setSelectedCardIds(new Set()); setQuery(""); }} aria-label="Seleccionar juego">
+              {Object.entries(cardGames).map(([game, details]) => <option key={game} value={game}>{details.label}</option>)}
+            </select>
+            <ChevronDown size={15} />
+          </label>
           <div className="library-actions">
             <label className="select-box bulk-status-selector">
               <select
@@ -932,14 +986,12 @@ function App() {
             <p className="eyebrow">
               <Send size={14} /> MERCADO DE INTERCAMBIOS
             </p>
-            <h1>Cartas en oferta</h1>
+            <h1>{cardGames[selectedGame].label}</h1>
             <p className="collection-subtitle">
               Ofertas publicadas por usuarios reales de tu comunidad.
             </p>
           </div>
-          <span className="offer-total">
-            {matchingOffers.length} ofertas activas
-          </span>
+          <div className="trade-game-controls"><label className="select-box game-selector"><select value={selectedGame} onChange={(event) => setSelectedGame(event.target.value)} aria-label="Seleccionar juego"><option value="magic">Magic: The Gathering</option><option value="pokemon">Pokemon</option><option value="star_wars_unlimited">Star Wars Unlimited</option><option value="riftbound">Riftbound</option></select><ChevronDown size={15} /></label><span className="offer-total">{matchingOffers.length} ofertas activas</span></div>
         </section>
         <section className="offer-controls">
           <label className="search-box">
@@ -1247,21 +1299,20 @@ function App() {
             >
               <X size={20} />
             </button>
-            <p className="eyebrow">IMPORTAR DESDE MAGIC</p>
-            <h2 id="import-title">Busca una carta</h2>
+            <p className="eyebrow">{selectedGame === "magic" ? "IMPORTAR DESDE MAGIC" : `ANADIR ${cardGames[selectedGame].label.toUpperCase()}`}</p>
+            <h2 id="import-title">{selectedGame === "magic" ? "Busca una carta" : "Registra una carta"}</h2>
             <p className="modal-copy">
-              Elige una impresion de la base de datos de Scryfall para anadirla
-              a tu biblioteca.
+              {selectedGame === "magic" ? "Elige una impresion de la base de datos de Scryfall para anadirla a tu biblioteca." : "Introduce el nombre de la carta para guardarla en tu biblioteca y poder publicarla para trade."}
             </p>
             <form className="import-search" onSubmit={searchScryfall}>
               <input
                 value={importQuery}
                 onChange={(event) => setImportQuery(event.target.value)}
-                placeholder="Ej. Sol Ring, set:woe"
+                placeholder={selectedGame === "magic" ? "Ej. Sol Ring, set:woe" : "Nombre de la carta"}
                 autoFocus
               />
               <button type="submit" disabled={isSearching}>
-                {isSearching ? "Buscando..." : "Buscar"}
+                {isSearching ? "Buscando..." : cardGames[selectedGame].importLabel}
               </button>
             </form>
             {searchError && <p className="search-error">{searchError}</p>}
@@ -1286,10 +1337,10 @@ function App() {
                 </article>
               ))}
             </div>
-            <p className="api-credit">
+            {selectedGame === "magic" && <p className="api-credit">
               Datos e imagenes de Scryfall. Magic: The Gathering es propiedad de
               Wizards of the Coast.
-            </p>
+            </p>}
           </section>
         </div>
       )}

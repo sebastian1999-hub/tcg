@@ -1062,6 +1062,14 @@ main,
 .bulk-status-selector {
   min-width: 168px;
 }
+.game-selector {
+  min-width: 188px;
+}
+.trade-game-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .bulk-status-selector:has(select:disabled) {
   opacity: 0.55;
 }
@@ -2090,6 +2098,13 @@ main,
     align-items: start;
     gap: 20px;
     flex-direction: column;
+  }
+  .trade-game-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .game-selector {
+    width: 100%;
   }
   .add-button {
     align-self: stretch;
