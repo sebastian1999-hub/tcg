@@ -16,6 +16,7 @@ import {
   Send,
   SlidersHorizontal,
   Sparkles,
+  Trash2,
   Users,
   X,
   XCircle,
@@ -29,7 +30,7 @@ const cardImage = (name) =>
 
 const cardGames = {
   magic: { label: "Magic: The Gathering", importLabel: "Buscar en Scryfall" },
-  pokemon: { label: "Pokemon", importLabel: "Anadir carta" },
+  pokemon: { label: "Pokemon", importLabel: "Buscar en TCGdex" },
   star_wars_unlimited: { label: "Star Wars Unlimited", importLabel: "Anadir carta" },
   riftbound: { label: "Riftbound", importLabel: "Anadir carta" },
 };
@@ -567,12 +568,64 @@ function App() {
     await refreshData(session);
   }
 
+  async function deleteSelectedCards() {
+    if (!selectedCardIds.size) return;
+    const cardIds = [...selectedCardIds];
+    const countLabel = cardIds.length === 1 ? "esta carta" : `estas ${cardIds.length} cartas`;
+    if (!window.confirm(`Eliminar ${countLabel} de tu biblioteca? Esta accion no se puede deshacer.`)) return;
+
+    const { error } = await supabase
+      .from("collection_cards")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("game", selectedGame)
+      .in("card_id", cardIds);
+    if (error) {
+      setNotice(`No se pudieron eliminar las cartas: ${error.message}`);
+      return;
+    }
+    setCollection((cards) => cards.filter((card) => !cardIds.includes(card.id) || card.game !== selectedGame));
+    setSelectedCardIds(new Set());
+    setSelectedCard(null);
+    setBulkStatus("");
+    setNotice(`${cardIds.length} ${cardIds.length === 1 ? "carta eliminada" : "cartas eliminadas"} de tu biblioteca.`);
+  }
+
   async function searchScryfall(event) {
     event.preventDefault();
     if (importQuery.trim().length < 2) return;
     setIsSearching(true);
     setSearchError("");
     try {
+      if (selectedGame === "pokemon") {
+        const response = await fetch(
+          `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(importQuery.trim())}`,
+        );
+        const summaries = await response.json();
+        if (!response.ok) throw new Error("No se pudieron buscar las cartas de Pokemon");
+        const details = await Promise.all(
+          summaries.slice(0, 8).map(async (summary) => {
+            const detailResponse = await fetch(
+              `https://api.tcgdex.net/v2/en/cards/${summary.id}`,
+            );
+            return detailResponse.ok ? detailResponse.json() : summary;
+          }),
+        );
+        setSearchResults(
+          details.map((card) => ({
+            id: card.id,
+            game: "pokemon",
+            name: card.name,
+            set: card.set?.name || "Edicion sin especificar",
+            rarity: card.rarity || "Sin especificar",
+            value: "0.00",
+            image: card.image ? `${card.image}/high.webp` : "",
+            available: true,
+            quantity: 1,
+          })),
+        );
+        return;
+      }
       if (selectedGame !== "magic") {
         setSearchResults([{
           id: `${selectedGame}-${importQuery.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
@@ -810,6 +863,9 @@ function App() {
               </select>
               <ChevronDown size={15} />
             </label>
+            <button className="delete-cards-button" type="button" onClick={deleteSelectedCards} disabled={!selectedCardIds.size}>
+              <Trash2 size={16} /> Eliminar ({selectedCardIds.size})
+            </button>
             <button
               className="add-button"
               type="button"
@@ -1299,16 +1355,16 @@ function App() {
             >
               <X size={20} />
             </button>
-            <p className="eyebrow">{selectedGame === "magic" ? "IMPORTAR DESDE MAGIC" : `ANADIR ${cardGames[selectedGame].label.toUpperCase()}`}</p>
-            <h2 id="import-title">{selectedGame === "magic" ? "Busca una carta" : "Registra una carta"}</h2>
+            <p className="eyebrow">{selectedGame === "magic" ? "IMPORTAR DESDE MAGIC" : selectedGame === "pokemon" ? "IMPORTAR DESDE POKEMON" : `ANADIR ${cardGames[selectedGame].label.toUpperCase()}`}</p>
+            <h2 id="import-title">{selectedGame === "magic" || selectedGame === "pokemon" ? "Busca una carta" : "Registra una carta"}</h2>
             <p className="modal-copy">
-              {selectedGame === "magic" ? "Elige una impresion de la base de datos de Scryfall para anadirla a tu biblioteca." : "Introduce el nombre de la carta para guardarla en tu biblioteca y poder publicarla para trade."}
+              {selectedGame === "magic" ? "Elige una impresion de la base de datos de Scryfall para anadirla a tu biblioteca." : selectedGame === "pokemon" ? "Busca una carta en TCGdex para guardar su nombre, edicion, rareza e imagen." : "Introduce el nombre de la carta para guardarla en tu biblioteca y poder publicarla para trade."}
             </p>
             <form className="import-search" onSubmit={searchScryfall}>
               <input
                 value={importQuery}
                 onChange={(event) => setImportQuery(event.target.value)}
-                placeholder={selectedGame === "magic" ? "Ej. Sol Ring, set:woe" : "Nombre de la carta"}
+                placeholder={selectedGame === "magic" ? "Ej. Sol Ring, set:woe" : selectedGame === "pokemon" ? "Ej. Pikachu, Charizard ex" : "Nombre de la carta"}
                 autoFocus
               />
               <button type="submit" disabled={isSearching}>
@@ -1340,6 +1396,9 @@ function App() {
             {selectedGame === "magic" && <p className="api-credit">
               Datos e imagenes de Scryfall. Magic: The Gathering es propiedad de
               Wizards of the Coast.
+            </p>}
+            {selectedGame === "pokemon" && <p className="api-credit">
+              Datos e imagenes de TCGdex. Pokemon es propiedad de The Pokemon Company.
             </p>}
           </section>
         </div>

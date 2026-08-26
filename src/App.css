@@ -1107,6 +1107,22 @@ main,
   align-items: center;
   gap: 7px;
 }
+.delete-cards-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d7b5ab;
+  border-radius: 4px;
+  padding: 11px 12px;
+  color: #884d3e;
+  background: #fff8f5;
+  font-size: 12px;
+  font-weight: 600;
+}
+.delete-cards-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
