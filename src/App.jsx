@@ -32,8 +32,22 @@ const cardGames = {
   magic: { label: "Magic: The Gathering", importLabel: "Buscar en Scryfall" },
   pokemon: { label: "Pokemon", importLabel: "Buscar en TCGdex" },
   star_wars_unlimited: { label: "Star Wars Unlimited", importLabel: "Buscar en SWUAPI" },
-  riftbound: { label: "Riftbound", importLabel: "Anadir carta" },
+  lorcana: { label: "Disney Lorcana", importLabel: "Buscar en LorcanaJSON" },
 };
+
+let lorcanaCardsPromise;
+
+function loadLorcanaCards() {
+  if (!lorcanaCardsPromise) {
+    lorcanaCardsPromise = fetch("https://lorcanajson.org/files/current/en/allCards.json")
+      .then((response) => {
+        if (!response.ok) throw new Error("No se pudo cargar el catalogo de Disney Lorcana");
+        return response.json();
+      })
+      .then((data) => data.cards || []);
+  }
+  return lorcanaCardsPromise;
+}
 
 const locationLabel = (profile) =>
   [profile?.locality, profile?.province, profile?.community]
@@ -647,6 +661,31 @@ function App() {
         );
         return;
       }
+      if (selectedGame === "lorcana") {
+        const normalizedQuery = importQuery.trim().toLocaleLowerCase();
+        const cards = await loadLorcanaCards();
+        setSearchResults(
+          cards
+            .filter((card) =>
+              [card.fullName, card.name, card.simpleName]
+                .filter(Boolean)
+                .some((name) => name.toLocaleLowerCase().includes(normalizedQuery)),
+            )
+            .slice(0, 8)
+            .map((card) => ({
+              id: String(card.id),
+              game: "lorcana",
+              name: card.fullName || card.name,
+              set: card.setCode ? `Set ${card.setCode}` : "Edicion sin especificar",
+              rarity: card.rarity || "Sin especificar",
+              value: "0.00",
+              image: card.images?.full || card.images?.thumbnail || "",
+              available: true,
+              quantity: 1,
+            })),
+        );
+        return;
+      }
       if (selectedGame !== "magic") {
         setSearchResults([{
           id: `${selectedGame}-${importQuery.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
@@ -1068,7 +1107,7 @@ function App() {
               Ofertas publicadas por usuarios reales de tu comunidad.
             </p>
           </div>
-          <div className="trade-game-controls"><label className="select-box game-selector"><select value={selectedGame} onChange={(event) => setSelectedGame(event.target.value)} aria-label="Seleccionar juego"><option value="magic">Magic: The Gathering</option><option value="pokemon">Pokemon</option><option value="star_wars_unlimited">Star Wars Unlimited</option><option value="riftbound">Riftbound</option></select><ChevronDown size={15} /></label><span className="offer-total">{matchingOffers.length} ofertas activas</span></div>
+          <div className="trade-game-controls"><label className="select-box game-selector"><select value={selectedGame} onChange={(event) => setSelectedGame(event.target.value)} aria-label="Seleccionar juego"><option value="magic">Magic: The Gathering</option><option value="pokemon">Pokemon</option><option value="star_wars_unlimited">Star Wars Unlimited</option><option value="lorcana">Disney Lorcana</option></select><ChevronDown size={15} /></label><span className="offer-total">{matchingOffers.length} ofertas activas</span></div>
         </section>
         <section className="offer-controls">
           <label className="search-box">
@@ -1376,16 +1415,16 @@ function App() {
             >
               <X size={20} />
             </button>
-            <p className="eyebrow">{selectedGame === "magic" ? "IMPORTAR DESDE MAGIC" : selectedGame === "pokemon" ? "IMPORTAR DESDE POKEMON" : selectedGame === "star_wars_unlimited" ? "IMPORTAR DESDE STAR WARS UNLIMITED" : `ANADIR ${cardGames[selectedGame].label.toUpperCase()}`}</p>
-            <h2 id="import-title">{selectedGame === "riftbound" ? "Registra una carta" : "Busca una carta"}</h2>
+            <p className="eyebrow">{selectedGame === "magic" ? "IMPORTAR DESDE MAGIC" : selectedGame === "pokemon" ? "IMPORTAR DESDE POKEMON" : selectedGame === "star_wars_unlimited" ? "IMPORTAR DESDE STAR WARS UNLIMITED" : "IMPORTAR DESDE DISNEY LORCANA"}</p>
+            <h2 id="import-title">Busca una carta</h2>
             <p className="modal-copy">
-              {selectedGame === "magic" ? "Elige una impresion de la base de datos de Scryfall para anadirla a tu biblioteca." : selectedGame === "pokemon" ? "Busca una carta en TCGdex para guardar su nombre, edicion, rareza e imagen." : selectedGame === "star_wars_unlimited" ? "Busca una carta en SWUAPI para guardar su nombre, edicion, rareza e imagen." : "Introduce el nombre de la carta para guardarla en tu biblioteca y poder publicarla para trade."}
+              {selectedGame === "magic" ? "Elige una impresion de la base de datos de Scryfall para anadirla a tu biblioteca." : selectedGame === "pokemon" ? "Busca una carta en TCGdex para guardar su nombre, edicion, rareza e imagen." : selectedGame === "star_wars_unlimited" ? "Busca una carta en SWUAPI para guardar su nombre, edicion, rareza e imagen." : "Busca una carta en LorcanaJSON para guardar su nombre, edicion, rareza e imagen oficial."}
             </p>
             <form className="import-search" onSubmit={searchScryfall}>
               <input
                 value={importQuery}
                 onChange={(event) => setImportQuery(event.target.value)}
-                placeholder={selectedGame === "magic" ? "Ej. Sol Ring, set:woe" : selectedGame === "pokemon" ? "Ej. Pikachu, Charizard ex" : selectedGame === "star_wars_unlimited" ? "Ej. Luke Skywalker, Darth Vader" : "Nombre de la carta"}
+                placeholder={selectedGame === "magic" ? "Ej. Sol Ring, set:woe" : selectedGame === "pokemon" ? "Ej. Pikachu, Charizard ex" : selectedGame === "star_wars_unlimited" ? "Ej. Luke Skywalker, Darth Vader" : "Ej. Elsa, Stitch, Mickey Mouse"}
                 autoFocus
               />
               <button type="submit" disabled={isSearching}>
@@ -1423,6 +1462,9 @@ function App() {
             </p>}
             {selectedGame === "star_wars_unlimited" && <p className="api-credit">
               Datos e imagenes de SWUAPI. Star Wars Unlimited es propiedad de Fantasy Flight Games y Lucasfilm.
+            </p>}
+            {selectedGame === "lorcana" && <p className="api-credit">
+              Datos e imagenes de LorcanaJSON. Disney Lorcana es propiedad de Disney y Ravensburger.
             </p>}
           </section>
         </div>

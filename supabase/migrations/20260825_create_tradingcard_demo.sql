@@ -14,7 +14,7 @@ create table if not exists public.collection_cards (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   card_id text not null,
-  game text not null default 'magic' check (game in ('magic', 'pokemon', 'star_wars_unlimited', 'riftbound')),
+  game text not null default 'magic' check (game in ('magic', 'pokemon', 'star_wars_unlimited', 'lorcana')),
   name text not null,
   set_name text,
   rarity text,
@@ -72,7 +72,14 @@ alter table public.collection_cards
 
 alter table public.collection_cards
   add column if not exists game text not null default 'magic'
-  check (game in ('magic', 'pokemon', 'star_wars_unlimited', 'riftbound'));
+  check (game in ('magic', 'pokemon', 'star_wars_unlimited', 'lorcana'));
+
+alter table public.collection_cards
+  drop constraint if exists collection_cards_game_check;
+
+alter table public.collection_cards
+  add constraint collection_cards_game_check
+  check (game in ('magic', 'pokemon', 'star_wars_unlimited', 'lorcana'));
 
 alter table public.collection_cards
   drop constraint if exists collection_cards_user_id_card_id_key;
