@@ -414,13 +414,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: visible;
   margin: 10px -30px 0;
 }
 .orbit-inner {
   --card-width: 150px;
   --card-height: 210px;
-  --orbit-radius: 330px;
+  --orbit-radius: 285px;
   position: absolute;
   width: var(--card-width);
   height: var(--card-height);
@@ -443,6 +443,8 @@
   transform: rotateY(calc((360deg / var(--quantity)) * var(--index)))
     translateZ(var(--orbit-radius));
   transform-style: preserve-3d;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   box-shadow: 0 12px 25px rgba(22, 39, 25, 0.24);
   transition:
     border-color 0.18s,
@@ -488,7 +490,7 @@
   .orbit-inner {
     --card-width: 120px;
     --card-height: 168px;
-    --orbit-radius: 235px;
+    --orbit-radius: 200px;
     top: 100px;
   }
 }
@@ -503,7 +505,7 @@
   .orbit-inner {
     --card-width: 98px;
     --card-height: 138px;
-    --orbit-radius: 170px;
+    --orbit-radius: 145px;
     top: 96px;
   }
   .orbit-card span {

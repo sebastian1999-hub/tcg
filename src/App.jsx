@@ -32,22 +32,8 @@ const cardGames = {
   magic: { label: "Magic: The Gathering", importLabel: "Buscar en Scryfall" },
   pokemon: { label: "Pokemon", importLabel: "Buscar en TCGdex" },
   star_wars_unlimited: { label: "Star Wars Unlimited", importLabel: "Buscar en SWUAPI" },
-  lorcana: { label: "Disney Lorcana", importLabel: "Buscar en LorcanaJSON" },
+  lorcana: { label: "Disney Lorcana", importLabel: "Buscar en Lorcana API" },
 };
-
-let lorcanaCardsPromise;
-
-function loadLorcanaCards() {
-  if (!lorcanaCardsPromise) {
-    lorcanaCardsPromise = fetch("https://lorcanajson.org/files/current/en/allCards.json")
-      .then((response) => {
-        if (!response.ok) throw new Error("No se pudo cargar el catalogo de Disney Lorcana");
-        return response.json();
-      })
-      .then((data) => data.cards || []);
-  }
-  return lorcanaCardsPromise;
-}
 
 const locationLabel = (profile) =>
   [profile?.locality, profile?.province, profile?.community]
@@ -662,24 +648,24 @@ function App() {
         return;
       }
       if (selectedGame === "lorcana") {
-        const normalizedQuery = importQuery.trim().toLocaleLowerCase();
-        const cards = await loadLorcanaCards();
+        const response = await fetch(
+          `https://api.lorcana-api.com/cards/fetch?search=${encodeURIComponent(`name~${importQuery.trim()}`)}`,
+        );
+        const cards = await response.json();
+        if (!response.ok || !Array.isArray(cards)) {
+          throw new Error("No se pudieron buscar las cartas de Disney Lorcana");
+        }
         setSearchResults(
           cards
-            .filter((card) =>
-              [card.fullName, card.name, card.simpleName]
-                .filter(Boolean)
-                .some((name) => name.toLocaleLowerCase().includes(normalizedQuery)),
-            )
             .slice(0, 8)
             .map((card) => ({
-              id: String(card.id),
+              id: card.Unique_ID || `${card.Set_ID}-${card.Card_Num}`,
               game: "lorcana",
-              name: card.fullName || card.name,
-              set: card.setCode ? `Set ${card.setCode}` : "Edicion sin especificar",
-              rarity: card.rarity || "Sin especificar",
+              name: card.Name,
+              set: card.Set_Name || card.Set_ID || "Edicion sin especificar",
+              rarity: card.Rarity || "Sin especificar",
               value: "0.00",
-              image: card.images?.full || card.images?.thumbnail || "",
+              image: card.Image || "",
               available: true,
               quantity: 1,
             })),
