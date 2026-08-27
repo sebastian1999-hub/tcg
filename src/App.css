@@ -2081,7 +2081,7 @@ main,
     gap: 0;
   }
   .main-nav,
-  .top-actions > .icon-button,
+  .top-actions > .icon-button:not(.mobile-menu),
   .profile-trigger > span:not(.profile-dot) {
     display: none;
   }
@@ -2094,7 +2094,7 @@ main,
     top: 60px;
     right: 0;
     left: 0;
-    z-index: 9;
+    z-index: 20;
     padding: 9px 18px 14px;
     border-bottom: 1px solid #d7ddd3;
     background: rgba(247, 246, 240, 0.98);
